@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "deployment-automation-demo",
-      cwd: "/opt/deployment-demo/current/app",
+      cwd: "/home/ubuntu/deployment-automation-demo/app",
       script: "server.js",
       interpreter: "node",
       instances: 1,
