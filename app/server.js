@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 const port = Number(process.env.PORT || 3000);
 
-const version = process.env.APP_VERSION || "demo-v1";
+const version = process.env.APP_VERSION || "demo-v2";
 
 app.get("/", (_req, res) => {
   res.json({
