@@ -2,14 +2,19 @@ module.exports = {
   apps: [
     {
       name: "deployment-automation-demo",
-      cwd: "/home/ubuntu/deployment-automation-demo/app",
+
+      // Always run the app from the active deployment release.
+      cwd: "/opt/deployment-demo/current/app",
       script: "server.js",
+
       interpreter: "node",
       instances: 1,
       exec_mode: "fork",
+
       autorestart: true,
       watch: false,
       max_memory_restart: "300M",
+
       env: {
         NODE_ENV: "production",
         PORT: "3000",
