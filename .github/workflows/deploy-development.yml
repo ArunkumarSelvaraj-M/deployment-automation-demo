@@ -84,7 +84,7 @@ jobs:
 
           chmod 600 "$HOME/.ssh/deploy_key"
           chmod 600 "$HOME/.ssh/known_hosts"
-
+          
       - name: Test SSH connection
         shell: bash
         run: |
