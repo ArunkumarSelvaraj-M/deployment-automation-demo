@@ -1,0 +1,155 @@
+```yaml
+name: Deploy Demo Application - Development
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!test'
+      - '!main'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-demo-development
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Demo EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEV_DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEV_DEPLOY_USER }}
+      BRANCH_NAME: ${{ github.ref_name }}
+      RELEASE_ID: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch: $BRANCH_NAME"
+          echo "Commit: $RELEASE_ID"
+
+          if [[ "$BRANCH_NAME" == "test" || "$BRANCH_NAME" == "main" ]]; then
+            echo "::error::UAT and production branches are excluded from this demo."
+            exit 1
+          fi
+
+          if [[ ! "$BRANCH_NAME" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::Unsupported branch name."
+            exit 1
+          fi
+
+          if [[ ! "$RELEASE_ID" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid commit SHA."
+            exit 1
+          fi
+
+          test -f app/package.json
+          test -f app/package-lock.json
+          test -f app/server.js
+          test -f app/ecosystem.config.cjs
+          test -f scripts/deploy.sh
+
+          echo "Validation passed."
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEV_DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEV_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          chmod 600 "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Test SSH connection
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "whoami && hostname"
+
+      - name: Prepare release directory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '/opt/deployment-demo/releases/$RELEASE_ID'"
+
+      - name: Upload application
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rsync -az --delete \
+            --exclude='.git/' \
+            -e "ssh -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            ./ \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/deployment-demo/releases/$RELEASE_ID/"
+
+      - name: Run deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash '/opt/deployment-demo/releases/$RELEASE_ID/scripts/deploy.sh' '$RELEASE_ID' '$BRANCH_NAME'"
+
+      - name: Verify deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "curl --fail --silent --show-error http://127.0.0.1:3000/health && echo"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f "$HOME/.ssh/deploy_key"
+```
