@@ -64,7 +64,7 @@ pm2 --version
 # ============================================================
 
 echo ">>> Switching active release..."
-ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"
 
 # ============================================================
 # Start or reload application
@@ -80,7 +80,7 @@ if ! pm2 startOrReload \
 
     if [[ -n "$PREVIOUS_TARGET" && -d "$PREVIOUS_TARGET" ]]; then
         echo ">>> Restoring previous release..."
-        ln -sfn "$PREVIOUS_TARGET" "$CURRENT_LINK"
+        ln -sfnT "$PREVIOUS_TARGET" "$CURRENT_LINK"
 
         pm2 startOrReload \
             "$CURRENT_LINK/app/ecosystem.config.cjs" \
