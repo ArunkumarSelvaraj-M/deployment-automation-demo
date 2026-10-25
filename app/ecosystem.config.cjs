@@ -18,7 +18,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: "3000",
-        APP_VERSION: "demo-v1"
+        APP_VERSION: "demo-v2"
       }
     }
   ]
