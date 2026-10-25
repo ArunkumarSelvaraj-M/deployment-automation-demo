@@ -1,4 +1,3 @@
-```yaml
 name: Deploy Demo Application - Development
 
 on:
@@ -152,4 +151,3 @@ jobs:
       - name: Clean up SSH key
         if: always()
         run: rm -f "$HOME/.ssh/deploy_key"
-```
